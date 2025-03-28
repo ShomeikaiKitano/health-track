@@ -62,7 +62,7 @@ const ensureUserDataFile = (userId) => {
 export default function handler(req, res) {
   // CORS設定
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
   if (req.method === 'OPTIONS') {
@@ -113,7 +113,7 @@ const getUsernameById = (userId) => {
   }
 };
 
-// POST: データ保存
+// POST: 新規データ保存
   if (req.method === 'POST') {
     try {
       const userDataFilePath = ensureUserDataFile(userId);
@@ -141,6 +141,9 @@ const getUsernameById = (userId) => {
         data = [];
       }
       
+      // IDを生成して追加
+      newEntry.id = Date.now().toString();
+      
       // 新しいデータを追加
       data = [newEntry, ...data];
       
@@ -151,14 +154,85 @@ const getUsernameById = (userId) => {
       const username = getUsernameById(userId);
       sendSlackNotification(newEntry, username);
       
-      return res.status(200).json({ success: true });
+      return res.status(200).json({ success: true, entry: newEntry });
     } catch (error) {
       console.error('保存エラー:', error);
       return res.status(500).json({ error: 'データの保存に失敗しました' });
     }
   }
   
+  // PUT: データ更新
+  if (req.method === 'PUT') {
+    try {
+      const userDataFilePath = ensureUserDataFile(userId);
+      
+      // リクエストボディからデータを取得
+      let updatedEntry = req.body;
+      
+      // IDが必要
+      if (!updatedEntry.id) {
+        return res.status(400).json({ error: 'エントリーIDが必要です' });
+      }
+      
+      // ユーザーIDを確認（セキュリティのため）
+      updatedEntry.userId = userId;
+      
+      // 既存のデータを読み込む
+      let data = [];
+      try {
+        const dataStr = fs.readFileSync(userDataFilePath, 'utf8');
+        if (dataStr.trim()) {
+          data = JSON.parse(dataStr);
+        }
+      } catch (readError) {
+        console.error('ファイル読み込みエラー:', readError);
+        return res.status(500).json({ error: 'データの読み込みに失敗しました' });
+      }
+      
+      // データが配列でない場合はエラー
+      if (!Array.isArray(data)) {
+        return res.status(500).json({ error: 'データ形式が不正です' });
+      }
+      
+      // リクエストのデバッグ情報
+      console.log('Update entry request:', JSON.stringify(updatedEntry, null, 2));
+      
+      // エントリーのインデックスを検索
+      // まずIDで検索し、見つからなければ日付で検索する
+      let entryIndex = data.findIndex(entry => entry.id && entry.id === updatedEntry.id);
+      
+      // IDで見つからない場合は日付で検索
+      if (entryIndex === -1) {
+        console.log('Entry not found by ID, trying to find by date...');
+        entryIndex = data.findIndex(entry => entry.date === updatedEntry.date);
+      }
+      
+      // エントリーが見つからない場合
+      if (entryIndex === -1) {
+        console.log('Entry not found by date either');
+        return res.status(404).json({ error: '更新対象のエントリーが見つかりませんでした' });
+      }
+      
+      // 編集フラグを追加（日本時間で記録）
+      updatedEntry.edited = true;
+      const now = new Date();
+      const jstNow = new Date(now.getTime() + (9 * 60 * 60 * 1000));
+      updatedEntry.editedAt = jstNow.toISOString();
+      
+      // エントリーを更新
+      data[entryIndex] = updatedEntry;
+      
+      // データをファイルに書き込む
+      fs.writeFileSync(userDataFilePath, JSON.stringify(data));
+      
+      return res.status(200).json({ success: true, entry: updatedEntry });
+    } catch (error) {
+      console.error('更新エラー:', error);
+      return res.status(500).json({ error: 'データの更新に失敗しました' });
+    }
+  }
+  
   // サポートしていないHTTPメソッド
-  res.setHeader('Allow', ['GET', 'POST']);
+  res.setHeader('Allow', ['GET', 'POST', 'PUT']);
   return res.status(405).end(`Method ${req.method} Not Allowed`);
 }

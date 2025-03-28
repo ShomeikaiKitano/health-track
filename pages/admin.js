@@ -131,6 +131,7 @@ export default function Admin() {
     setActiveTab('history');
   };
   
+  
   // ユーザーリスト画面に戻る
   const handleBackToList = () => {
     setSelectedUser(null);
@@ -205,6 +206,7 @@ export default function Admin() {
             {error}
           </div>
         )}
+        
         
         {selectedUser ? (
           <div className="card">

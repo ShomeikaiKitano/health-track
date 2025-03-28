@@ -1,6 +1,6 @@
 import React from 'react';
 
-const HistoryList = ({ history }) => {
+const HistoryList = ({ history, onEdit }) => {
   // スタイル定義
   const styles = {
     historyHeader: {
@@ -143,7 +143,8 @@ const HistoryList = ({ history }) => {
       year: 'numeric',
       month: 'long',
       day: 'numeric',
-      weekday: 'long'
+      weekday: 'long',
+      timeZone: 'Asia/Tokyo'
     });
   };
   
@@ -152,13 +153,55 @@ const HistoryList = ({ history }) => {
     const date = new Date(dateString);
     return date.toLocaleTimeString('ja-JP', {
       hour: '2-digit',
-      minute: '2-digit'
+      minute: '2-digit',
+      timeZone: 'Asia/Tokyo'
     });
   };
   
   // 日付部分だけを取得 (YYYY-MM-DD)
   const getDateOnly = (dateString) => {
-    return dateString.split('T')[0];
+    const date = new Date(dateString);
+    const options = { year: 'numeric', month: '2-digit', day: '2-digit', timeZone: 'Asia/Tokyo' };
+    const parts = new Intl.DateTimeFormat('fr-CA', options).format(date).split('-');
+    return `${parts[0]}-${parts[1]}-${parts[2]}`;
+  };
+
+  // 現在表示中の年月を状態として持つ（日本時間）
+  const [currentYearMonth, setCurrentYearMonth] = React.useState(() => {
+    const now = new Date();
+    const formatter = new Intl.DateTimeFormat('en', {
+      year: 'numeric', 
+      month: '2-digit',
+      timeZone: 'Asia/Tokyo'
+    });
+    const parts = formatter.formatToParts(now);
+    const year = parts.find(part => part.type === 'year').value;
+    const month = parts.find(part => part.type === 'month').value;
+    return `${year}-${month}`;
+  });
+
+  // 年月を変更する関数
+  const changeMonth = (offset) => {
+    const [year, month] = currentYearMonth.split('-').map(num => parseInt(num));
+    // タイムゾーンを考慮した日付操作
+    const date = new Date(`${year}-${month}-01T00:00:00+09:00`);
+    date.setMonth(date.getMonth() + offset);
+    
+    const formatter = new Intl.DateTimeFormat('en', {
+      year: 'numeric', 
+      month: '2-digit',
+      timeZone: 'Asia/Tokyo'
+    });
+    const parts = formatter.formatToParts(date);
+    const newYear = parts.find(part => part.type === 'year').value;
+    const newMonth = parts.find(part => part.type === 'month').value;
+    setCurrentYearMonth(`${newYear}-${newMonth}`);
+  };
+
+  // 表示年月のフォーマット関数
+  const formatYearMonth = (yearMonth) => {
+    const [year, month] = yearMonth.split('-');
+    return `${year}年${month}月`;
   };
 
   // 日付でデータをグループ化する
@@ -170,65 +213,165 @@ const HistoryList = ({ history }) => {
     groups[dateKey].push(item);
     return groups;
   }, {});
+  
+  // 同じ日付内のアイテムを時間順にソート（新しい順）
+  Object.keys(groupedByDate).forEach(dateKey => {
+    groupedByDate[dateKey].sort((a, b) => new Date(b.date) - new Date(a.date));
+  });
 
   // 日付順にソート
-  const sortedDates = Object.keys(groupedByDate).sort((a, b) => new Date(b) - new Date(a));
+  const sortedDates = Object.keys(groupedByDate)
+    .filter(dateKey => dateKey.startsWith(currentYearMonth)) // 現在の年月のデータのみをフィルタリング
+    .sort((a, b) => new Date(b) - new Date(a));
   
   return (
-    <ul className="historyList">
-      {sortedDates.map(dateKey => {
-        const entriesForDate = groupedByDate[dateKey];
-        const formattedDate = formatDate(entriesForDate[0].date);
-        
-        return (
-          <li key={dateKey} style={styles.dateGroup} className="dateGroup">
-            <div style={styles.dateGroupHeader} className="dateGroupHeader">
-              <span style={styles.dateLabel}>{formattedDate}</span>
-              {entriesForDate.length > 1 && (
-                <span style={styles.entriesCount}>
-                  {entriesForDate.length}件
-                </span>
-              )}
-            </div>
+    <div>
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: '20px',
+        padding: '10px',
+        backgroundColor: 'rgba(0,0,0,0.03)',
+        borderRadius: '8px'
+      }}>
+        <button 
+          onClick={() => changeMonth(-1)}
+          style={{
+            border: 'none',
+            background: 'none',
+            cursor: 'pointer',
+            fontSize: '16px',
+            padding: '5px 10px',
+            borderRadius: '4px',
+            color: 'var(--primary)'
+          }}
+        >
+          ◀ 前月
+        </button>
+        <h3 style={{
+          margin: 0,
+          fontWeight: '600',
+          fontSize: '1.1rem'
+        }}>{formatYearMonth(currentYearMonth)}</h3>
+        <button 
+          onClick={() => changeMonth(1)}
+          style={{
+            border: 'none',
+            background: 'none',
+            cursor: 'pointer',
+            fontSize: '16px',
+            padding: '5px 10px',
+            borderRadius: '4px',
+            color: 'var(--primary)'
+          }}
+        >
+          次月 ▶
+        </button>
+      </div>
+      
+      {sortedDates.length === 0 ? (
+        <div style={{
+          textAlign: 'center',
+          padding: '30px 0',
+          color: 'var(--text-light)',
+          fontStyle: 'italic'
+        }}>
+          この月のデータはありません
+        </div>
+      ) : (
+        <ul className="historyList">
+          {sortedDates.map(dateKey => {
+            const entriesForDate = groupedByDate[dateKey];
+            const formattedDate = formatDate(entriesForDate[0].date);
             
-            {entriesForDate.map((item, index) => (
-              <div key={index} style={styles.historyItem} className={`historyItem ${item.status}`}>
-                <div style={styles.historyHeader} className="historyHeader">
-                  <span style={styles.historyIcon} className="historyIcon">{getIcon(item.status)}</span>
-                  <span style={styles.statusLabel} className={`statusLabel ${item.status}`}>{getLabel(item.status)}</span>
+            return (
+              <li key={dateKey} style={styles.dateGroup} className="dateGroup">
+                <div style={styles.dateGroupHeader} className="dateGroupHeader">
+                  <span style={styles.dateLabel}>{formattedDate}</span>
                   {entriesForDate.length > 1 && (
-                    <span style={styles.entryNumberBadge}>{index + 1}</span>
+                    <span style={styles.entriesCount}>
+                      {entriesForDate.length}件
+                    </span>
                   )}
-                  <span style={styles.timeLabel}>{formatTime(item.date)}</span>
                 </div>
                 
-                {item.comment && (
-                  <div style={styles.comment} className="comment">
-                    「{item.comment}」
-                  </div>
-                )}
-                
-                {item.keywords && item.keywords.length > 0 && (
-                  <div style={styles.keywords} className="keywords">
-                    {item.keywords.map((keyword, kidx) => (
-                      <span key={kidx} style={styles.keyword} className="keyword">
-                        {keyword}
+                {entriesForDate.map((item, index) => (
+                  <div key={index} style={styles.historyItem} className={`historyItem ${item.status}`}>
+                    <div style={styles.historyHeader} className="historyHeader">
+                      <span style={styles.historyIcon} className="historyIcon">{getIcon(item.status)}</span>
+                      <span style={styles.statusLabel} className={`statusLabel ${item.status}`}>{getLabel(item.status)}</span>
+                      {entriesForDate.length > 1 && (
+                        <span style={styles.entryNumberBadge}>{index + 1}</span>
+                      )}
+                      <span style={styles.timeLabel}>
+                        {formatTime(item.date)}
+                        {item.edited && (
+                          <span style={{
+                            marginLeft: '5px',
+                            fontSize: '0.7rem',
+                            color: 'var(--secondary)',
+                            fontStyle: 'italic'
+                          }}>(編集済み)</span>
+                        )}
                       </span>
-                    ))}
+                    </div>
+                    
+                    {item.comment && (
+                      <div style={styles.comment} className="comment">
+                        「{item.comment}」
+                      </div>
+                    )}
+                    
+                    {item.keywords && item.keywords.length > 0 && (
+                      <div style={styles.keywords} className="keywords">
+                        {item.keywords.map((keyword, kidx) => (
+                          <span key={kidx} style={styles.keyword} className="keyword">
+                            {keyword}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    
+                    {item.factor && (
+                      <div style={styles.factor} className="factor">
+                        <span style={styles.factorLabel}>影響要因:</span> {item.factor}
+                      </div>
+                    )}
+                    
+                    {/* 編集ボタン */}
+                    <div style={{
+                      display: 'flex',
+                      justifyContent: 'flex-end',
+                      marginTop: '10px',
+                      marginRight: '10px'
+                    }}>
+                      <button 
+                        onClick={() => onEdit && onEdit(item)}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          padding: '4px 8px',
+                          fontSize: '0.8rem',
+                          color: 'var(--primary)',
+                          cursor: 'pointer',
+                          borderRadius: '4px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '4px'
+                        }}
+                      >
+                        <span style={{ fontSize: '1rem' }}>✏️</span>編集
+                      </button>
+                    </div>
                   </div>
-                )}
-                
-                {item.factor && (
-                  <div style={styles.factor} className="factor">
-                    <span style={styles.factorLabel}>影響要因:</span> {item.factor}
-                  </div>
-                )}
-              </div>
-            ))}
-          </li>
-        );
-      })}
-    </ul>
+                ))}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
   );
 };
 

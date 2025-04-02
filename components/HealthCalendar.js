@@ -45,8 +45,8 @@ const HealthCalendar = ({ history }) => {
     switch (status) {
       case 'excellent': return '🌞';
       case 'good': return '☀️';
-      case 'average': return '☁️';
-      case 'fair': return '🌥️';
+      case 'average': return '🌥️';
+      case 'fair': return '☁️';
       case 'poor': return '🌧️';
       // 古いデータでも対応できるようにレガシーケースも含む
       case 'sunny': return '☀️';
@@ -191,8 +191,8 @@ const HealthCalendar = ({ history }) => {
         <div className={styles.calendarLegend}>
           <div className={`${styles.legendItem} ${styles.excellent}`}><span className={styles.legendIconBox}></span><span className={styles.legendIcon}>🌞</span> 最高</div>
           <div className={`${styles.legendItem} ${styles.good}`}><span className={styles.legendIconBox}></span><span className={styles.legendIcon}>☀️</span> 良い</div>
-          <div className={`${styles.legendItem} ${styles.average}`}><span className={styles.legendIconBox}></span><span className={styles.legendIcon}>☁️</span> 普通</div>
-          <div className={`${styles.legendItem} ${styles.fair}`}><span className={styles.legendIconBox}></span><span className={styles.legendIcon}>🌥️</span> まあまあ</div>
+          <div className={`${styles.legendItem} ${styles.average}`}><span className={styles.legendIconBox}></span><span className={styles.legendIcon}>🌥️</span> 普通</div>
+          <div className={`${styles.legendItem} ${styles.fair}`}><span className={styles.legendIconBox}></span><span className={styles.legendIcon}>☁️</span> まあまあ</div>
           <div className={`${styles.legendItem} ${styles.poor}`}><span className={styles.legendIconBox}></span><span className={styles.legendIcon}>🌧️</span> 悪い</div>
         </div>
       </div>

@@ -46,8 +46,8 @@ const HealthCalendar = ({ history }) => {
       case 'excellent': return '🌞';
       case 'good': return '☀️';
       case 'average': return '🌥️';
-      case 'fair': return '☁️';
-      case 'poor': return '🌧️';
+      case 'fair': return '🌧️';
+      case 'poor': return '⛈️';
       // 古いデータでも対応できるようにレガシーケースも含む
       case 'sunny': return '☀️';
       case 'cloudy': return '☁️';
@@ -62,8 +62,8 @@ const HealthCalendar = ({ history }) => {
       case 'excellent': return '最高';
       case 'good': return '良い';
       case 'average': return '普通';
-      case 'fair': return 'まあまあ';
-      case 'poor': return '悪い';
+      case 'fair': return '悪い';
+      case 'poor': return '最悪';
       // 古いデータでも対応できるようにレガシーケースも含む
       case 'sunny': return '晴れ';
       case 'cloudy': return '曇り';
@@ -192,8 +192,8 @@ const HealthCalendar = ({ history }) => {
           <div className={`${styles.legendItem} ${styles.excellent}`}><span className={styles.legendIconBox}></span><span className={styles.legendIcon}>🌞</span> 最高</div>
           <div className={`${styles.legendItem} ${styles.good}`}><span className={styles.legendIconBox}></span><span className={styles.legendIcon}>☀️</span> 良い</div>
           <div className={`${styles.legendItem} ${styles.average}`}><span className={styles.legendIconBox}></span><span className={styles.legendIcon}>🌥️</span> 普通</div>
-          <div className={`${styles.legendItem} ${styles.fair}`}><span className={styles.legendIconBox}></span><span className={styles.legendIcon}>☁️</span> まあまあ</div>
-          <div className={`${styles.legendItem} ${styles.poor}`}><span className={styles.legendIconBox}></span><span className={styles.legendIcon}>🌧️</span> 悪い</div>
+          <div className={`${styles.legendItem} ${styles.fair}`}><span className={styles.legendIconBox}></span><span className={styles.legendIcon}>🌧️</span> 悪い</div>
+          <div className={`${styles.legendItem} ${styles.poor}`}><span className={styles.legendIconBox}></span><span className={styles.legendIcon}>⛈️</span> 最悪</div>
         </div>
       </div>
       

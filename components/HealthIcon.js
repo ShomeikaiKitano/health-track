@@ -14,12 +14,12 @@ const HealthIcon = ({ type, active, onClick }) => {
     label = '普通';
     className = 'average';
   } else if (type === 'fair') {
-    icon = '☁️';
-    label = 'まあまあ';
-    className = 'fair';
-  } else if (type === 'poor') {
     icon = '🌧️';
     label = '悪い';
+    className = 'fair';
+  } else if (type === 'poor') {
+    icon = '⛈️';
+    label = '最悪';
     className = 'poor';
   }
   

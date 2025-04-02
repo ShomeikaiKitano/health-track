@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Line } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
@@ -22,9 +22,42 @@ ChartJS.register(
 );
 
 const HealthChart = ({ history }) => {
+  // 現在表示している年月の状態
+  const [currentYearMonth, setCurrentYearMonth] = useState(() => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    return `${year}-${month}`;
+  });
+
+  // 年月だけを取得 (YYYY-MM)
+  const getYearMonth = (dateString) => {
+    return dateString.split('T')[0].substring(0, 7);
+  };
+  
   // 日付部分だけを取得 (YYYY-MM-DD)
   const getDateOnly = (dateString) => {
     return dateString.split('T')[0];
+  };
+  
+  // 年月を変更する関数
+  const changeMonth = (offset) => {
+    const [year, month] = currentYearMonth.split('-').map(num => parseInt(num));
+    
+    // 日付操作
+    let newDate = new Date(Date.UTC(year, month - 1, 1));
+    newDate.setUTCMonth(newDate.getUTCMonth() + offset);
+    
+    const newYear = newDate.getUTCFullYear();
+    const newMonth = String(newDate.getUTCMonth() + 1).padStart(2, '0');
+    
+    setCurrentYearMonth(`${newYear}-${newMonth}`);
+  };
+  
+  // 表示年月のフォーマット関数
+  const formatYearMonth = () => {
+    const [year, month] = currentYearMonth.split('-');
+    return `${year}年${parseInt(month)}月`;
   };
   
   // 時間をフォーマット (HH:MM)
@@ -50,8 +83,13 @@ const HealthChart = ({ history }) => {
   let processedData = [];
   let dateLabelMap = {};
 
-  // グループ化されたデータを処理
-  Object.keys(groupedByDate).sort().forEach(dateKey => {
+  // 現在の年月のデータのみをフィルタリング
+  const currentYearMonthData = Object.keys(groupedByDate)
+    .filter(dateKey => dateKey.startsWith(currentYearMonth))
+    .sort(); // 日付順にソート
+
+  // フィルタリングされたデータを処理
+  currentYearMonthData.forEach(dateKey => {
     const entries = groupedByDate[dateKey];
     
     // 同じ日付の複数エントリを時間順にソート
@@ -209,7 +247,7 @@ const HealthChart = ({ history }) => {
       },
       title: {
         display: true,
-        text: 'Health Track',
+        text: `Health Track - ${formatYearMonth()}`,
         font: {
           size: 18,
           family: 'Inter',
@@ -326,7 +364,66 @@ const HealthChart = ({ history }) => {
 
   return (
     <div className="chartContainer">
-      <Line data={data} options={options} />
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: '20px',
+        padding: '10px',
+        backgroundColor: 'rgba(0,0,0,0.03)',
+        borderRadius: '8px'
+      }}>
+        <button 
+          onClick={() => changeMonth(-1)}
+          style={{
+            border: 'none',
+            background: 'none',
+            cursor: 'pointer',
+            fontSize: '16px',
+            padding: '5px 10px',
+            borderRadius: '4px',
+            color: 'var(--primary)'
+          }}
+        >
+          ◀ 前月
+        </button>
+        <h3 style={{
+          margin: 0,
+          fontWeight: '600',
+          fontSize: '1.1rem'
+        }}>{formatYearMonth()}</h3>
+        <button 
+          onClick={() => changeMonth(1)}
+          style={{
+            border: 'none',
+            background: 'none',
+            cursor: 'pointer',
+            fontSize: '16px',
+            padding: '5px 10px',
+            borderRadius: '4px',
+            color: 'var(--primary)'
+          }}
+        >
+          次月 ▶
+        </button>
+      </div>
+      
+      {sortedHistory.length === 0 ? (
+        <div style={{
+          textAlign: 'center',
+          padding: '30px 0',
+          color: 'var(--text-light)',
+          fontStyle: 'italic',
+          minHeight: '300px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center'
+        }}>
+          この月のデータはありません
+        </div>
+      ) : (
+        <Line data={data} options={options} />
+      )}
     </div>
   );
 };

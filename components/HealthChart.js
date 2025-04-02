@@ -37,7 +37,26 @@ const HealthChart = ({ history }) => {
   
   // 日付部分だけを取得 (YYYY-MM-DD)
   const getDateOnly = (dateString) => {
-    return dateString.split('T')[0];
+    if (!dateString) return '';
+    try {
+      // ISO形式の場合はTで分割
+      if (dateString.includes('T')) {
+        return dateString.split('T')[0];
+      }
+      // それ以外の場合は有効なDate型に変換してフォーマット
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) {
+        console.error('Invalid date:', dateString);
+        return '';
+      }
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    } catch (error) {
+      console.error('Error parsing date:', error, dateString);
+      return '';
+    }
   };
   
   // 年月を変更する関数
@@ -71,7 +90,18 @@ const HealthChart = ({ history }) => {
 
   // 同じ日付のエントリをグループ化
   const groupedByDate = history.reduce((groups, item) => {
+    // itemやdateが不正な形式でないか確認
+    if (!item || !item.date) {
+      console.warn('Invalid history item:', item);
+      return groups;
+    }
+    
     const dateKey = getDateOnly(item.date);
+    if (!dateKey) {
+      console.warn('Failed to get date key for item:', item);
+      return groups;
+    }
+    
     if (!groups[dateKey]) {
       groups[dateKey] = [];
     }

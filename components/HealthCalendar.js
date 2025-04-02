@@ -26,14 +26,40 @@ const HealthCalendar = ({ history }) => {
     const healthByDate = {};
     
     history.forEach(item => {
-      // 日本時間に変換
-      const date = new Date(item.date);
-      // YYYY-MM-DD形式に変換
-      const dateStr = date.toISOString().split('T')[0];
+      // itemやdateフィールドの検証
+      if (!item || !item.date) {
+        console.warn('Invalid history item:', item);
+        return;
+      }
       
-      // すでにその日のデータがあれば、最新のものだけを残す
-      if (!healthByDate[dateStr] || new Date(healthByDate[dateStr].date) < date) {
-        healthByDate[dateStr] = item;
+      try {
+        // 日付文字列をDate型に変換
+        const date = new Date(item.date);
+        
+        // 無効な日付の場合はスキップ
+        if (isNaN(date.getTime())) {
+          console.error('Invalid date in history item:', item.date, item);
+          return;
+        }
+        
+        // YYYY-MM-DD形式に変換（ISO文字列から日付部分を抽出）
+        let dateStr;
+        try {
+          dateStr = date.toISOString().split('T')[0];
+        } catch (err) {
+          // ISOStringが失敗した場合の別の方法
+          const year = date.getFullYear();
+          const month = String(date.getMonth() + 1).padStart(2, '0');
+          const day = String(date.getDate()).padStart(2, '0');
+          dateStr = `${year}-${month}-${day}`;
+        }
+        
+        // すでにその日のデータがあれば、最新のものだけを残す
+        if (!healthByDate[dateStr] || new Date(healthByDate[dateStr].date) < date) {
+          healthByDate[dateStr] = item;
+        }
+      } catch (error) {
+        console.error('Error processing date in history item:', error, item);
       }
     });
     
@@ -70,6 +96,36 @@ const HealthCalendar = ({ history }) => {
       case 'rainy': return '雨';
       default: return '良い';
     }
+  };
+
+  // 選択された日付のデータを表示するためのstate
+  const [tooltipData, setTooltipData] = useState(null);
+  const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
+
+  // マウスオーバー時の処理
+  const handleMouseOver = (e, healthData) => {
+    if (healthData) {
+      setTooltipPosition({
+        x: e.clientX,
+        y: e.clientY
+      });
+      setTooltipData(healthData);
+    }
+  };
+
+  // マウス移動時の処理
+  const handleMouseMove = (e, healthData) => {
+    if (healthData && tooltipData) {
+      setTooltipPosition({
+        x: e.clientX,
+        y: e.clientY
+      });
+    }
+  };
+
+  // マウスアウト時の処理
+  const handleMouseOut = () => {
+    setTooltipData(null);
   };
 
   // カレンダーのレンダリング
@@ -120,6 +176,9 @@ const HealthCalendar = ({ history }) => {
         <td 
           key={dateStr} 
           className={`${styles.calendarDay} ${healthData ? styles[healthData.status] || '' : ''} ${isToday ? styles.today : ''}`}
+          onMouseOver={(e) => handleMouseOver(e, healthData)}
+          onMouseMove={(e) => handleMouseMove(e, healthData)}
+          onMouseOut={handleMouseOut}
         >
           <div className={styles.dayContent}>
             <div className={`${styles.dayNumber} ${isDayOfWeekSunday ? styles.sundayText : isDayOfWeekSaturday ? styles.saturdayText : ''}`}>
@@ -168,6 +227,17 @@ const HealthCalendar = ({ history }) => {
   // 曜日の表示
   const weekDays = ['日', '月', '火', '水', '木', '金', '土'];
 
+  // 日付のフォーマット関数（YYYY-MM-DD → YYYY年MM月DD日）
+  const formatDate = (dateStr) => {
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return '';
+    
+    const year = date.getFullYear();
+    const month = date.getMonth() + 1;
+    const day = date.getDate();
+    return `${year}年${month}月${day}日`;
+  };
+
   return (
     <div className={styles.healthCalendar}>
       <div className={styles.calendarHeader}>
@@ -212,6 +282,23 @@ const HealthCalendar = ({ history }) => {
         </tbody>
       </table>
 
+      {tooltipData && (
+        <div className={styles.tooltip} style={{ 
+          left: `${tooltipPosition.x}px`, 
+          top: `${tooltipPosition.y}px` 
+        }}>
+          <div className={styles.tooltipDate}>{formatDate(tooltipData.date)}</div>
+          <div className={styles.tooltipStatus}>
+            {getIcon(tooltipData.status)} {getLabel(tooltipData.status)}
+          </div>
+          {tooltipData.rating && (
+            <div className={styles.tooltipRating}>評価: {tooltipData.rating}/5</div>
+          )}
+          {tooltipData.comment && (
+            <div className={styles.tooltipComment}>{tooltipData.comment}</div>
+          )}
+        </div>
+      )}
     </div>
   );
 };

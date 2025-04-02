@@ -15,9 +15,6 @@ export default function Admin() {
   const [healthLoading, setHealthLoading] = useState(false);
   const [usersHealth, setUsersHealth] = useState({});
   const [activeTab, setActiveTab] = useState('history');
-  const [importCsvFile, setImportCsvFile] = useState(null);
-  const [importLoading, setImportLoading] = useState(false);
-  const [importResult, setImportResult] = useState('');
   const router = useRouter();
   
   // ログイン状態と管理者権限をチェック
@@ -158,74 +155,43 @@ export default function Admin() {
     if (!selectedUser) return;
     
     try {
-      // CSVファイルをダウンロード
-      window.open(`/api/health?userId=${selectedUser.id}&format=csv`, '_blank');
+      setLoading(true);
+      // CSVファイルを取得
+      const response = await fetch(`/api/health?userId=${selectedUser.id}&format=csv`);
+      
+      if (!response.ok) {
+        throw new Error('CSVデータの取得に失敗しました');
+      }
+      
+      // レスポンスをテキストとして取得
+      const csvData = await response.text();
+      
+      // CSVデータをBlobに変換
+      const blob = new Blob([csvData], { type: 'text/csv;charset=utf-8;' });
+      
+      // ダウンロードリンクを作成
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `health_data_${selectedUser.username}.csv`);
+      
+      // リンクを文書に追加してクリック
+      document.body.appendChild(link);
+      link.click();
+      
+      // 不要になったリンクを削除
+      document.body.removeChild(link);
+      
+      // BlobのURLを解放
+      URL.revokeObjectURL(url);
+      setLoading(false);
     } catch (error) {
       console.error('CSVエクスポートエラー:', error);
       setError('データのエクスポート中にエラーが発生しました');
+      setLoading(false);
     }
   };
   
-  // CSVインポート用のファイル選択ハンドラ
-  const handleFileChange = (e) => {
-    if (e.target.files && e.target.files.length > 0) {
-      setImportCsvFile(e.target.files[0]);
-      setImportResult(''); // 結果をリセット
-    }
-  };
-  
-  // CSVインポート処理
-  const handleImportCsv = async () => {
-    if (!selectedUser || !importCsvFile) return;
-    
-    try {
-      setImportLoading(true);
-      setImportResult('');
-      
-      // ファイルを読み込む
-      const reader = new FileReader();
-      
-      reader.onload = async (event) => {
-        const csvData = event.target.result;
-        
-        // APIを呼び出してインポート
-        const response = await fetch(`/api/health?userId=${selectedUser.id}&action=import`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ csvData }),
-        });
-        
-        if (!response.ok) {
-          throw new Error('データのインポートに失敗しました');
-        }
-        
-        const result = await response.json();
-        setImportResult(`${result.message}`);
-        
-        // データを再読み込み
-        const healthResponse = await fetch(`/api/health?userId=${selectedUser.id}`);
-        if (healthResponse.ok) {
-          const data = await healthResponse.json();
-          setUserHealth(data);
-        }
-        
-        setImportLoading(false);
-      };
-      
-      reader.onerror = () => {
-        setError('ファイルの読み込みに失敗しました');
-        setImportLoading(false);
-      };
-      
-      reader.readAsText(importCsvFile);
-    } catch (error) {
-      console.error('CSVインポートエラー:', error);
-      setError('データのインポート中にエラーが発生しました');
-      setImportLoading(false);
-    }
-  };
   
   // 体調ステータスに応じたアイコンを返す関数
   const getHealthIcon = (status) => {
@@ -296,42 +262,10 @@ export default function Admin() {
                     onClick={handleExportCsv} 
                     className="actionButton exportButton"
                     title="CSVデータをエクスポート"
+                    disabled={loading}
                   >
-                    📥 CSVエクスポート
+                    {loading ? 'エクスポート中...' : '📥 CSVエクスポート'}
                   </button>
-                  <div className="importContainer">
-                    <button 
-                      onClick={() => document.getElementById('csvFileInput').click()} 
-                      className="actionButton importButton"
-                      title="CSVデータをインポート"
-                    >
-                      📤 CSVインポート
-                    </button>
-                    <input
-                      type="file"
-                      id="csvFileInput"
-                      accept=".csv"
-                      style={{ display: 'none' }}
-                      onChange={handleFileChange}
-                    />
-                    {importCsvFile && (
-                      <div className="importInfo">
-                        <span className="fileName">{importCsvFile.name}</span>
-                        <button 
-                          onClick={handleImportCsv}
-                          disabled={importLoading}
-                          className="uploadButton"
-                        >
-                          {importLoading ? 'インポート中...' : 'インポート実行'}
-                        </button>
-                      </div>
-                    )}
-                    {importResult && (
-                      <div className="importResult">
-                        {importResult}
-                      </div>
-                    )}
-                  </div>
                 </div>
                 <button 
                   onClick={handleBackToList} 
@@ -538,6 +472,8 @@ export default function Admin() {
           border: 1px solid #b7eb8f;
           border-radius: 4px;
           margin-top: 5px;
+          max-width: 300px;
+          word-break: break-word;
         }
         .backButton {
           background: none;

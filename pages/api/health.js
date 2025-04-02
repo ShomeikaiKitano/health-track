@@ -101,8 +101,17 @@ export default function handler(req, res) {
         // CSVデータの行を作成
         const csvRows = healthData.map(entry => {
           const date = new Date(entry.date);
-          const dateStr = date.toLocaleDateString('ja-JP'); // YYYY/MM/DD
-          const timeStr = date.toLocaleTimeString('ja-JP'); // HH:MM:SS
+          // YYYY/MM/DD形式の日付
+          const year = date.getFullYear();
+          const month = (date.getMonth() + 1).toString().padStart(2, '0');
+          const day = date.getDate().toString().padStart(2, '0');
+          const dateStr = `${year}/${month}/${day}`;
+          
+          // HH:MM:SS形式の時間
+          const hours = date.getHours().toString().padStart(2, '0');
+          const minutes = date.getMinutes().toString().padStart(2, '0');
+          const seconds = date.getSeconds().toString().padStart(2, '0');
+          const timeStr = `${hours}:${minutes}:${seconds}`;
           
           // 体調ステータスを日本語に変換
           let statusJa = '';
@@ -134,11 +143,13 @@ export default function handler(req, res) {
             entry.comment || '',
             entry.id || '',
           ].map(field => {
+            // 値がnullまたはundefinedの場合は空文字列に変換
+            const strValue = field !== null && field !== undefined ? String(field) : '';
             // CSV内の特殊文字をエスケープ
             // ダブルクォーテーションをダブルクォーテーション2つにエスケープ
-            // フィールド内にカンマか改行があればダブルクォーテーションで囲む
-            const escaped = String(field).replace(/"/g, '""');
-            return (field.includes(',') || field.includes('\n') || field.includes('"')) 
+            const escaped = strValue.replace(/"/g, '""');
+            // フィールド内にカンマか改行やダブルクォートがあればダブルクォーテーションで囲む
+            return (strValue.includes(',') || strValue.includes('\n') || strValue.includes('"')) 
               ? `"${escaped}"` 
               : escaped;
           }).join(',');
@@ -299,150 +310,6 @@ const getUsernameById = (userId) => {
     }
   }
   
-  // POST with ?action=import - CSV形式のデータをインポート
-  if (req.method === 'POST' && req.query.action === 'import') {
-    try {
-      const userDataFilePath = ensureUserDataFile(userId);
-      
-      // CSVデータの解析
-      const csvData = req.body.csvData;
-      if (!csvData) {
-        return res.status(400).json({ error: 'CSVデータが必要です' });
-      }
-      
-      // CSVデータの行に分割
-      const rows = csvData.split('\n');
-      
-      // ヘッダー行を取得して処理
-      const header = rows[0].split(',');
-      
-      // データ行を処理
-      const importedData = [];
-      for (let i = 1; i < rows.length; i++) {
-        if (!rows[i].trim()) continue; // 空行はスキップ
-        
-        // CSV行を解析（ダブルクォーテーションの処理を含む）
-        const values = [];
-        let inQuotes = false;
-        let currentValue = '';
-        
-        for (let j = 0; j < rows[i].length; j++) {
-          const char = rows[i][j];
-          
-          if (char === '"') {
-            // エスケープされたダブルクォーテーションの場合
-            if (j + 1 < rows[i].length && rows[i][j + 1] === '"') {
-              currentValue += '"';
-              j++; // 追加の引用符をスキップ
-            } else {
-              // 通常のダブルクォーテーション
-              inQuotes = !inQuotes;
-            }
-          } else if (char === ',' && !inQuotes) {
-            // フィールドの区切り
-            values.push(currentValue);
-            currentValue = '';
-          } else {
-            // 通常の文字
-            currentValue += char;
-          }
-        }
-        
-        // 最後の値を追加
-        values.push(currentValue);
-        
-        // 値が少なすぎる場合はスキップ
-        if (values.length < 3) continue;
-        
-        // CSVの列を解析
-        const dateStr = values[0]; // 日付
-        const timeStr = values[1]; // 時間
-        const statusJa = values[2]; // 体調（日本語）
-        const rating = values[3] ? parseInt(values[3], 10) : null; // 評価
-        const keywordsStr = values[4] || ''; // キーワード（カンマ区切り）
-        const factor = values[5] || ''; // 影響要因
-        const comment = values[6] || ''; // コメント
-        const id = values[7] || Date.now().toString(); // ID
-        
-        // 日本語の体調ステータスを英語に変換
-        let status = '';
-        switch (statusJa) {
-          case '最高': status = 'excellent'; break;
-          case '良い': status = 'good'; break;
-          case '普通': status = 'average'; break;
-          case 'まあまあ': status = 'fair'; break;
-          case '悪い': status = 'poor'; break;
-          // レガシーフォーマット
-          case '晴れ': status = 'sunny'; break;
-          case '曇り': status = 'cloudy'; break;
-          case '雨': status = 'rainy'; break;
-          default: status = 'average'; break; // デフォルト値
-        }
-        
-        // 日付と時間を結合してISO形式に変換
-        const dateObj = new Date(`${dateStr} ${timeStr}`);
-        const isoDate = dateObj.toISOString();
-        
-        // キーワードを配列に変換
-        const keywords = keywordsStr.split(',').map(k => k.trim()).filter(k => k);
-        
-        // 新しいエントリを作成
-        const newEntry = {
-          id,
-          date: isoDate,
-          status,
-          rating: rating || (status === 'excellent' ? 5 : status === 'good' ? 4 : status === 'average' ? 3 : status === 'fair' ? 2 : 1),
-          keywords,
-          factor,
-          comment,
-          userId
-        };
-        
-        importedData.push(newEntry);
-      }
-      
-      // 既存のデータを読み込み、マージする
-      let existingData = [];
-      try {
-        const dataStr = fs.readFileSync(userDataFilePath, 'utf8');
-        if (dataStr.trim()) {
-          existingData = JSON.parse(dataStr);
-        }
-      } catch (error) {
-        console.error('既存データの読み込みエラー:', error);
-        existingData = [];
-      }
-      
-      // IDベースでマージ（同じIDのデータは上書き）
-      const mergedData = [...existingData];
-      const existingIds = new Set(existingData.map(item => item.id));
-      
-      for (const newItem of importedData) {
-        if (existingIds.has(newItem.id)) {
-          // 既存データを更新
-          const index = mergedData.findIndex(item => item.id === newItem.id);
-          if (index !== -1) {
-            mergedData[index] = newItem;
-          }
-        } else {
-          // 新しいデータを追加
-          mergedData.push(newItem);
-        }
-      }
-      
-      // データを保存
-      fs.writeFileSync(userDataFilePath, JSON.stringify(mergedData));
-      
-      return res.status(200).json({ 
-        success: true, 
-        message: `${importedData.length}件のデータをインポートしました`,
-        importedCount: importedData.length 
-      });
-    } catch (error) {
-      console.error('CSVインポートエラー:', error);
-      return res.status(500).json({ error: 'データのインポートに失敗しました' });
-    }
-  }
   
   // サポートしていないHTTPメソッド
   res.setHeader('Allow', ['GET', 'POST', 'PUT']);

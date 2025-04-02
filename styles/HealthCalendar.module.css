@@ -185,3 +185,52 @@
 .average, .cloudy { background-color: rgba(158, 158, 158, 0.3); } /* グレー系 */
 .fair { background-color: rgba(3, 169, 244, 0.3); } /* 青系 */
 .poor, .rainy { background-color: rgba(33, 33, 150, 0.3); } /* 濃い青系 */
+
+/* ツールチップ */
+.tooltip {
+  position: fixed;
+  transform: translate(10px, -50%);
+  background-color: white;
+  border-radius: 4px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
+  padding: 10px;
+  z-index: 100;
+  min-width: 200px;
+  max-width: 300px;
+  color: #333;
+  font-size: 0.9rem;
+  border: 1px solid #e0e0e0;
+  pointer-events: none;
+}
+
+.tooltipDate {
+  font-weight: bold;
+  margin-bottom: 5px;
+  font-size: 1rem;
+  color: #333;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 5px;
+}
+
+.tooltipStatus {
+  display: flex;
+  align-items: center;
+  font-size: 1rem;
+  margin-bottom: 5px;
+}
+
+.tooltipRating {
+  margin-bottom: 5px;
+  color: #555;
+}
+
+.tooltipComment {
+  background-color: #f8f8f8;
+  padding: 5px 8px;
+  border-radius: 3px;
+  border-left: 3px solid #ddd;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  max-height: 80px;
+  overflow-y: auto;
+}

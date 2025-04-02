@@ -70,7 +70,7 @@ export default function handler(req, res) {
   }
 
   // ユーザーIDの取得 (URLからクエリパラメータとして取得)
-  const { userId } = req.query;
+  const { userId, format } = req.query;
   
   if (!userId) {
     return res.status(400).json({ error: 'ユーザーIDが必要です' });
@@ -81,13 +81,80 @@ export default function handler(req, res) {
     try {
       const userDataFilePath = ensureUserDataFile(userId);
       const data = fs.readFileSync(userDataFilePath, 'utf8');
-      // 空ファイルや無効なJSONの場合は空配列を返す
+      let healthData = [];
+      
       try {
-        return res.status(200).json(JSON.parse(data));
+        healthData = JSON.parse(data);
       } catch (parseError) {
         console.error('JSONパースエラー:', parseError);
-        return res.status(200).json([]);
+        healthData = [];
       }
+      
+      // CSVフォーマットが要求された場合
+      if (format === 'csv') {
+        // データを日付順にソート
+        healthData.sort((a, b) => new Date(a.date) - new Date(b.date));
+        
+        // CSVヘッダー
+        const csvHeader = ['日付', '時間', '体調', '評価', 'キーワード', '影響要因', 'コメント', 'ID'];
+        
+        // CSVデータの行を作成
+        const csvRows = healthData.map(entry => {
+          const date = new Date(entry.date);
+          const dateStr = date.toLocaleDateString('ja-JP'); // YYYY/MM/DD
+          const timeStr = date.toLocaleTimeString('ja-JP'); // HH:MM:SS
+          
+          // 体調ステータスを日本語に変換
+          let statusJa = '';
+          switch (entry.status) {
+            case 'excellent': statusJa = '最高'; break;
+            case 'good': statusJa = '良い'; break;
+            case 'average': statusJa = '普通'; break;
+            case 'fair': statusJa = 'まあまあ'; break;
+            case 'poor': statusJa = '悪い'; break;
+            // レガシーデータ
+            case 'sunny': statusJa = '晴れ'; break;
+            case 'cloudy': statusJa = '曇り'; break;
+            case 'rainy': statusJa = '雨'; break;
+            default: statusJa = ''; break;
+          }
+          
+          // キーワードを文字列に結合
+          const keywordsStr = entry.keywords && Array.isArray(entry.keywords) 
+            ? entry.keywords.join(', ') 
+            : '';
+          
+          return [
+            dateStr,
+            timeStr,
+            statusJa,
+            entry.rating || '',
+            keywordsStr,
+            entry.factor || '',
+            entry.comment || '',
+            entry.id || '',
+          ].map(field => {
+            // CSV内の特殊文字をエスケープ
+            // ダブルクォーテーションをダブルクォーテーション2つにエスケープ
+            // フィールド内にカンマか改行があればダブルクォーテーションで囲む
+            const escaped = String(field).replace(/"/g, '""');
+            return (field.includes(',') || field.includes('\n') || field.includes('"')) 
+              ? `"${escaped}"` 
+              : escaped;
+          }).join(',');
+        });
+        
+        // ヘッダーと行を結合
+        const csvContent = [csvHeader.join(','), ...csvRows].join('\n');
+        
+        // CSVファイルとしてレスポンスを設定
+        res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+        res.setHeader('Content-Disposition', `attachment; filename=health_data_${userId}.csv`);
+        return res.status(200).send(csvContent);
+      }
+      
+      // 通常のJSON形式の場合
+      return res.status(200).json(healthData);
     } catch (error) {
       console.error('ファイル読み込みエラー:', error);
       return res.status(200).json([]);
@@ -229,6 +296,151 @@ const getUsernameById = (userId) => {
     } catch (error) {
       console.error('更新エラー:', error);
       return res.status(500).json({ error: 'データの更新に失敗しました' });
+    }
+  }
+  
+  // POST with ?action=import - CSV形式のデータをインポート
+  if (req.method === 'POST' && req.query.action === 'import') {
+    try {
+      const userDataFilePath = ensureUserDataFile(userId);
+      
+      // CSVデータの解析
+      const csvData = req.body.csvData;
+      if (!csvData) {
+        return res.status(400).json({ error: 'CSVデータが必要です' });
+      }
+      
+      // CSVデータの行に分割
+      const rows = csvData.split('\n');
+      
+      // ヘッダー行を取得して処理
+      const header = rows[0].split(',');
+      
+      // データ行を処理
+      const importedData = [];
+      for (let i = 1; i < rows.length; i++) {
+        if (!rows[i].trim()) continue; // 空行はスキップ
+        
+        // CSV行を解析（ダブルクォーテーションの処理を含む）
+        const values = [];
+        let inQuotes = false;
+        let currentValue = '';
+        
+        for (let j = 0; j < rows[i].length; j++) {
+          const char = rows[i][j];
+          
+          if (char === '"') {
+            // エスケープされたダブルクォーテーションの場合
+            if (j + 1 < rows[i].length && rows[i][j + 1] === '"') {
+              currentValue += '"';
+              j++; // 追加の引用符をスキップ
+            } else {
+              // 通常のダブルクォーテーション
+              inQuotes = !inQuotes;
+            }
+          } else if (char === ',' && !inQuotes) {
+            // フィールドの区切り
+            values.push(currentValue);
+            currentValue = '';
+          } else {
+            // 通常の文字
+            currentValue += char;
+          }
+        }
+        
+        // 最後の値を追加
+        values.push(currentValue);
+        
+        // 値が少なすぎる場合はスキップ
+        if (values.length < 3) continue;
+        
+        // CSVの列を解析
+        const dateStr = values[0]; // 日付
+        const timeStr = values[1]; // 時間
+        const statusJa = values[2]; // 体調（日本語）
+        const rating = values[3] ? parseInt(values[3], 10) : null; // 評価
+        const keywordsStr = values[4] || ''; // キーワード（カンマ区切り）
+        const factor = values[5] || ''; // 影響要因
+        const comment = values[6] || ''; // コメント
+        const id = values[7] || Date.now().toString(); // ID
+        
+        // 日本語の体調ステータスを英語に変換
+        let status = '';
+        switch (statusJa) {
+          case '最高': status = 'excellent'; break;
+          case '良い': status = 'good'; break;
+          case '普通': status = 'average'; break;
+          case 'まあまあ': status = 'fair'; break;
+          case '悪い': status = 'poor'; break;
+          // レガシーフォーマット
+          case '晴れ': status = 'sunny'; break;
+          case '曇り': status = 'cloudy'; break;
+          case '雨': status = 'rainy'; break;
+          default: status = 'average'; break; // デフォルト値
+        }
+        
+        // 日付と時間を結合してISO形式に変換
+        const dateObj = new Date(`${dateStr} ${timeStr}`);
+        const isoDate = dateObj.toISOString();
+        
+        // キーワードを配列に変換
+        const keywords = keywordsStr.split(',').map(k => k.trim()).filter(k => k);
+        
+        // 新しいエントリを作成
+        const newEntry = {
+          id,
+          date: isoDate,
+          status,
+          rating: rating || (status === 'excellent' ? 5 : status === 'good' ? 4 : status === 'average' ? 3 : status === 'fair' ? 2 : 1),
+          keywords,
+          factor,
+          comment,
+          userId
+        };
+        
+        importedData.push(newEntry);
+      }
+      
+      // 既存のデータを読み込み、マージする
+      let existingData = [];
+      try {
+        const dataStr = fs.readFileSync(userDataFilePath, 'utf8');
+        if (dataStr.trim()) {
+          existingData = JSON.parse(dataStr);
+        }
+      } catch (error) {
+        console.error('既存データの読み込みエラー:', error);
+        existingData = [];
+      }
+      
+      // IDベースでマージ（同じIDのデータは上書き）
+      const mergedData = [...existingData];
+      const existingIds = new Set(existingData.map(item => item.id));
+      
+      for (const newItem of importedData) {
+        if (existingIds.has(newItem.id)) {
+          // 既存データを更新
+          const index = mergedData.findIndex(item => item.id === newItem.id);
+          if (index !== -1) {
+            mergedData[index] = newItem;
+          }
+        } else {
+          // 新しいデータを追加
+          mergedData.push(newItem);
+        }
+      }
+      
+      // データを保存
+      fs.writeFileSync(userDataFilePath, JSON.stringify(mergedData));
+      
+      return res.status(200).json({ 
+        success: true, 
+        message: `${importedData.length}件のデータをインポートしました`,
+        importedCount: importedData.length 
+      });
+    } catch (error) {
+      console.error('CSVインポートエラー:', error);
+      return res.status(500).json({ error: 'データのインポートに失敗しました' });
     }
   }
   

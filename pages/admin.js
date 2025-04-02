@@ -15,6 +15,9 @@ export default function Admin() {
   const [healthLoading, setHealthLoading] = useState(false);
   const [usersHealth, setUsersHealth] = useState({});
   const [activeTab, setActiveTab] = useState('history');
+  const [importCsvFile, setImportCsvFile] = useState(null);
+  const [importLoading, setImportLoading] = useState(false);
+  const [importResult, setImportResult] = useState('');
   const router = useRouter();
   
   // ログイン状態と管理者権限をチェック
@@ -150,6 +153,80 @@ export default function Admin() {
     router.push('/');
   }
   
+  // CSVエクスポート処理
+  const handleExportCsv = async () => {
+    if (!selectedUser) return;
+    
+    try {
+      // CSVファイルをダウンロード
+      window.open(`/api/health?userId=${selectedUser.id}&format=csv`, '_blank');
+    } catch (error) {
+      console.error('CSVエクスポートエラー:', error);
+      setError('データのエクスポート中にエラーが発生しました');
+    }
+  };
+  
+  // CSVインポート用のファイル選択ハンドラ
+  const handleFileChange = (e) => {
+    if (e.target.files && e.target.files.length > 0) {
+      setImportCsvFile(e.target.files[0]);
+      setImportResult(''); // 結果をリセット
+    }
+  };
+  
+  // CSVインポート処理
+  const handleImportCsv = async () => {
+    if (!selectedUser || !importCsvFile) return;
+    
+    try {
+      setImportLoading(true);
+      setImportResult('');
+      
+      // ファイルを読み込む
+      const reader = new FileReader();
+      
+      reader.onload = async (event) => {
+        const csvData = event.target.result;
+        
+        // APIを呼び出してインポート
+        const response = await fetch(`/api/health?userId=${selectedUser.id}&action=import`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ csvData }),
+        });
+        
+        if (!response.ok) {
+          throw new Error('データのインポートに失敗しました');
+        }
+        
+        const result = await response.json();
+        setImportResult(`${result.message}`);
+        
+        // データを再読み込み
+        const healthResponse = await fetch(`/api/health?userId=${selectedUser.id}`);
+        if (healthResponse.ok) {
+          const data = await healthResponse.json();
+          setUserHealth(data);
+        }
+        
+        setImportLoading(false);
+      };
+      
+      reader.onerror = () => {
+        setError('ファイルの読み込みに失敗しました');
+        setImportLoading(false);
+      };
+      
+      reader.readAsText(importCsvFile);
+    } catch (error) {
+      console.error('CSVインポートエラー:', error);
+      setError('データのインポート中にエラーが発生しました');
+      setImportLoading(false);
+    }
+  };
+  
   // 体調ステータスに応じたアイコンを返す関数
   const getHealthIcon = (status) => {
     switch (status) {
@@ -213,12 +290,56 @@ export default function Admin() {
           <div className="card">
             <div className="cardHeader">
               <h2>{selectedUser.username}さんの体調データ</h2>
-              <button 
-                onClick={handleBackToList} 
-                className="backButton"
-              >
-                ← ユーザー一覧に戻る
-              </button>
+              <div className="cardHeaderActions">
+                <div className="dataActions">
+                  <button 
+                    onClick={handleExportCsv} 
+                    className="actionButton exportButton"
+                    title="CSVデータをエクスポート"
+                  >
+                    📥 CSVエクスポート
+                  </button>
+                  <div className="importContainer">
+                    <button 
+                      onClick={() => document.getElementById('csvFileInput').click()} 
+                      className="actionButton importButton"
+                      title="CSVデータをインポート"
+                    >
+                      📤 CSVインポート
+                    </button>
+                    <input
+                      type="file"
+                      id="csvFileInput"
+                      accept=".csv"
+                      style={{ display: 'none' }}
+                      onChange={handleFileChange}
+                    />
+                    {importCsvFile && (
+                      <div className="importInfo">
+                        <span className="fileName">{importCsvFile.name}</span>
+                        <button 
+                          onClick={handleImportCsv}
+                          disabled={importLoading}
+                          className="uploadButton"
+                        >
+                          {importLoading ? 'インポート中...' : 'インポート実行'}
+                        </button>
+                      </div>
+                    )}
+                    {importResult && (
+                      <div className="importResult">
+                        {importResult}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <button 
+                  onClick={handleBackToList} 
+                  className="backButton"
+                >
+                  ← ユーザー一覧に戻る
+                </button>
+              </div>
             </div>
             
             <div className="tabs">
@@ -333,8 +454,90 @@ export default function Admin() {
         .cardHeader {
           display: flex;
           justify-content: space-between;
-          align-items: center;
+          align-items: flex-start;
           margin-bottom: 1rem;
+        }
+        .cardHeaderActions {
+          display: flex;
+          flex-direction: column;
+          align-items: flex-end;
+          gap: 10px;
+        }
+        .dataActions {
+          display: flex;
+          align-items: flex-start;
+          gap: 10px;
+        }
+        .actionButton {
+          background: none;
+          border: 1px solid #ddd;
+          padding: 0.4rem 0.6rem;
+          border-radius: 4px;
+          cursor: pointer;
+          font-size: 0.8rem;
+          display: flex;
+          align-items: center;
+          gap: 5px;
+          white-space: nowrap;
+        }
+        .exportButton {
+          background-color: #e6f7ff;
+          border-color: #91d5ff;
+          color: #1890ff;
+        }
+        .exportButton:hover {
+          background-color: #bae7ff;
+        }
+        .importButton {
+          background-color: #f6ffed;
+          border-color: #b7eb8f;
+          color: #52c41a;
+        }
+        .importButton:hover {
+          background-color: #d9f7be;
+        }
+        .importContainer {
+          display: flex;
+          flex-direction: column;
+          gap: 5px;
+        }
+        .importInfo {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          font-size: 0.8rem;
+          padding: 4px 8px;
+          background-color: #f9f9f9;
+          border-radius: 4px;
+          border: 1px dashed #d9d9d9;
+        }
+        .fileName {
+          max-width: 150px;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        .uploadButton {
+          background-color: #52c41a;
+          color: white;
+          border: none;
+          padding: 4px 8px;
+          border-radius: 4px;
+          cursor: pointer;
+          font-size: 0.75rem;
+        }
+        .uploadButton:disabled {
+          background-color: #d9d9d9;
+          cursor: not-allowed;
+        }
+        .importResult {
+          font-size: 0.8rem;
+          color: #52c41a;
+          padding: 4px 8px;
+          background-color: #f6ffed;
+          border: 1px solid #b7eb8f;
+          border-radius: 4px;
+          margin-top: 5px;
         }
         .backButton {
           background: none;

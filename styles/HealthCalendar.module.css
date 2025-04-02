@@ -81,11 +81,11 @@
 }
 
 /* 凡例のカラー設定 */
-.legendItem.excellent .legendIconBox { background-color: #FFC107; }
-.legendItem.good .legendIconBox { background-color: #8BC34A; }
-.legendItem.average .legendIconBox { background-color: #9E9E9E; }
-.legendItem.fair .legendIconBox { background-color: #03A9F4; }
-.legendItem.poor .legendIconBox { background-color: #0D47A1; }
+.legendItem.excellent .legendIconBox { background-color: rgba(255, 193, 7, 1); } /* 黄色系 */
+.legendItem.good .legendIconBox { background-color: rgba(139, 195, 74, 1); } /* 緑系 */
+.legendItem.average .legendIconBox { background-color: rgba(158, 158, 158, 1); } /* グレー系 */
+.legendItem.fair .legendIconBox { background-color: rgba(3, 169, 244, 1); } /* 青系 */
+.legendItem.poor .legendIconBox { background-color: rgba(33, 33, 150, 1); } /* 濃い青系 */
 
 /* ===== カレンダーテーブル ===== */
 .calendarTable {
@@ -170,16 +170,18 @@
 
 /* 今日の日付 */
 .today {
-  background-color: #e3f2fd !important;
+  background-color: rgba(33, 150, 243, 0.3) !important;
+  border: 2px solid rgba(33, 150, 243, 0.7) !important;
 }
 
 .today .dayNumber {
   font-weight: 600;
+  color: #0D47A1;
 }
 
 /* 体調ステータスの背景色 */
-.excellent, .sunny { background-color: rgba(255, 248, 225, 0.9); }
-.good { background-color: rgba(241, 248, 233, 0.9); }
-.average, .cloudy { background-color: rgba(245, 245, 245, 0.9); }
-.fair { background-color: rgba(225, 245, 254, 0.9); }
-.poor, .rainy { background-color: rgba(227, 242, 253, 0.9); }
+.excellent, .sunny { background-color: rgba(255, 193, 7, 0.3); } /* 黄色系 */
+.good { background-color: rgba(139, 195, 74, 0.3); } /* 緑系 */
+.average, .cloudy { background-color: rgba(158, 158, 158, 0.3); } /* グレー系 */
+.fair { background-color: rgba(3, 169, 244, 0.3); } /* 青系 */
+.poor, .rainy { background-color: rgba(33, 33, 150, 0.3); } /* 濃い青系 */

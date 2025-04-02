@@ -3,6 +3,7 @@ import { useRouter } from 'next/router';
 import Head from 'next/head';
 import HistoryList from '../components/HistoryList';
 import HealthChart from '../components/HealthChart';
+import HealthCalendar from '../components/HealthCalendar';
 
 export default function Admin() {
   const [user, setUser] = useState(null);
@@ -233,6 +234,12 @@ export default function Admin() {
               >
                 グラフ
               </div>
+              <div 
+                className={`tab ${activeTab === 'calendar' ? 'active' : ''}`}
+                onClick={() => setActiveTab('calendar')}
+              >
+                カレンダー
+              </div>
             </div>
 
             {healthLoading ? (
@@ -242,8 +249,10 @@ export default function Admin() {
             ) : (
               activeTab === 'history' ? (
                 <HistoryList history={userHealth} />
-              ) : (
+              ) : activeTab === 'chart' ? (
                 <HealthChart history={userHealth} />
+              ) : (
+                <HealthCalendar history={userHealth} />
               )
             )}
           </div>

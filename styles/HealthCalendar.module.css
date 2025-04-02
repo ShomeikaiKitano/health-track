@@ -1,0 +1,185 @@
+/* ===== 基本レイアウト ===== */
+.healthCalendar {
+  margin-top: 1rem;
+}
+
+/* ===== ヘッダー部分 ===== */
+.calendarHeader {
+  margin-bottom: 1rem;
+}
+
+.calendarControls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #eaeaea;
+}
+
+.currentMonth {
+  margin: 0;
+  font-weight: 500;
+  font-size: 1.4rem;
+  color: #333;
+}
+
+.monthButton {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #555;
+  transition: color 0.2s ease;
+}
+
+.monthButton:hover {
+  color: #000;
+}
+
+.buttonIcon {
+  font-size: 0.8rem;
+}
+
+/* ===== 凡例 ===== */
+.calendarLegend {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  padding: 0.5rem 0;
+}
+
+.legendItem {
+  display: flex;
+  align-items: center;
+  font-size: 0.9rem;
+  color: #666;
+  background-color: #fff;
+  padding: 4px 10px;
+  border-radius: 4px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.legendIconBox {
+  display: inline-block;
+  width: 15px;
+  height: 15px;
+  margin-right: 8px;
+  border-radius: 2px;
+}
+
+.legendIcon {
+  margin-right: 0.3rem;
+  font-size: 1.1rem;
+}
+
+/* 凡例のカラー設定 */
+.legendItem.excellent .legendIconBox { background-color: #FFC107; }
+.legendItem.good .legendIconBox { background-color: #8BC34A; }
+.legendItem.average .legendIconBox { background-color: #9E9E9E; }
+.legendItem.fair .legendIconBox { background-color: #03A9F4; }
+.legendItem.poor .legendIconBox { background-color: #0D47A1; }
+
+/* ===== カレンダーテーブル ===== */
+.calendarTable {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  overflow: hidden;
+  background-color: #f8f8f8;
+  margin-top: 16px;
+}
+
+.calendarTable th, 
+.calendarTable td {
+  text-align: center;
+  border: 1px solid #e0e0e0;
+}
+
+.calendarTable th {
+  font-weight: 600;
+  background-color: #f5f5f5;
+  padding: 10px 0;
+  font-size: 1.1rem;
+  color: #666;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+/* 曜日の色分け */
+.sunday { color: #e74c3c !important; }
+.saturday { color: #3498db !important; }
+.sundayText { color: #e74c3c; }
+.saturdayText { color: #3498db; }
+
+/* カレンダーのセル */
+.calendarDay, .emptyDay {
+  height: 5.5rem;
+  position: relative;
+  vertical-align: top;
+  overflow: hidden;
+}
+
+.calendarDay {
+  cursor: default;
+  background-color: white;
+}
+
+.calendarDay:hover {
+  background-color: #f5f5f5;
+}
+
+.emptyDay {
+  background-color: #f9f9f9;
+}
+
+/* セル内のコンテンツ */
+.dayContent {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  position: relative;
+  overflow: hidden;
+}
+
+.dayNumber {
+  width: 100%;
+  text-align: center;
+  font-size: 1.1rem;
+  font-weight: 500;
+  padding: 3px 0;
+  z-index: 2;
+}
+
+.healthIcon {
+  font-size: 2rem;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: calc(100% - 25px);
+  width: 100%;
+  z-index: 1;
+}
+
+/* 今日の日付 */
+.today {
+  background-color: #e3f2fd !important;
+}
+
+.today .dayNumber {
+  font-weight: 600;
+}
+
+/* 体調ステータスの背景色 */
+.excellent, .sunny { background-color: rgba(255, 248, 225, 0.9); }
+.good { background-color: rgba(241, 248, 233, 0.9); }
+.average, .cloudy { background-color: rgba(245, 245, 245, 0.9); }
+.fair { background-color: rgba(225, 245, 254, 0.9); }
+.poor, .rainy { background-color: rgba(227, 242, 253, 0.9); }

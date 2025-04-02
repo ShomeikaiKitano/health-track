@@ -138,63 +138,86 @@ const HistoryList = ({ history, onEdit }) => {
 
   // 日付のみをフォーマット (yyyy年MM月dd日 曜日)
   const formatDate = (dateString) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('ja-JP', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      weekday: 'long',
-      timeZone: 'Asia/Tokyo'
-    });
+    try {
+      const date = new Date(dateString);
+      
+      // 直接文字列を組み立てる方法（より安全）
+      // 日本時間に調整（+9時間）
+      const jpTime = new Date(date.getTime() + (9 * 60 * 60 * 1000));
+      
+      const year = jpTime.getUTCFullYear();
+      const month = jpTime.getUTCMonth() + 1;
+      const day = jpTime.getUTCDate();
+      
+      // 曜日（0: 日曜日, 1: 月曜日, ..., 6: 土曜日）
+      const weekdays = ['日曜日', '月曜日', '火曜日', '水曜日', '木曜日', '金曜日', '土曜日'];
+      const weekday = weekdays[jpTime.getUTCDay()];
+      
+      return `${year}年${month}月${day}日 ${weekday}`;
+    } catch (error) {
+      console.error('日付フォーマットエラー:', error, dateString);
+      return '日付エラー';
+    }
   };
   
   // 時間をフォーマット (HH:MM)
   const formatTime = (dateString) => {
-    const date = new Date(dateString);
-    return date.toLocaleTimeString('ja-JP', {
-      hour: '2-digit',
-      minute: '2-digit',
-      timeZone: 'Asia/Tokyo'
-    });
+    try {
+      const date = new Date(dateString);
+      
+      // 日本時間に調整（+9時間）
+      const jpTime = new Date(date.getTime() + (9 * 60 * 60 * 1000));
+      
+      // 時と分を取得して2桁でフォーマット
+      const hours = String(jpTime.getUTCHours()).padStart(2, '0');
+      const minutes = String(jpTime.getUTCMinutes()).padStart(2, '0');
+      
+      return `${hours}:${minutes}`;
+    } catch (error) {
+      console.error('時間フォーマットエラー:', error, dateString);
+      return '--:--';
+    }
   };
   
   // 日付部分だけを取得 (YYYY-MM-DD)
   const getDateOnly = (dateString) => {
+    // 文字列として受け取った日付を正しくパース
     const date = new Date(dateString);
-    const options = { year: 'numeric', month: '2-digit', day: '2-digit', timeZone: 'Asia/Tokyo' };
-    const parts = new Intl.DateTimeFormat('fr-CA', options).format(date).split('-');
-    return `${parts[0]}-${parts[1]}-${parts[2]}`;
+    
+    // 日本時間に調整（+9時間）
+    const jpTime = new Date(date.getTime() + (9 * 60 * 60 * 1000));
+    
+    // YYYY-MM-DD 形式で返す
+    const year = jpTime.getUTCFullYear();
+    const month = String(jpTime.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(jpTime.getUTCDate()).padStart(2, '0');
+    
+    return `${year}-${month}-${day}`;
   };
 
   // 現在表示中の年月を状態として持つ（日本時間）
   const [currentYearMonth, setCurrentYearMonth] = React.useState(() => {
+    // 日本時間に合わせて現在の年月を取得
     const now = new Date();
-    const formatter = new Intl.DateTimeFormat('en', {
-      year: 'numeric', 
-      month: '2-digit',
-      timeZone: 'Asia/Tokyo'
-    });
-    const parts = formatter.formatToParts(now);
-    const year = parts.find(part => part.type === 'year').value;
-    const month = parts.find(part => part.type === 'month').value;
+    // 9時間の時差を考慮（日本時間は UTC+9）
+    const jpTime = new Date(now.getTime() + (9 * 60 * 60 * 1000));
+    const year = jpTime.getUTCFullYear();
+    const month = String(jpTime.getUTCMonth() + 1).padStart(2, '0');
     return `${year}-${month}`;
   });
 
   // 年月を変更する関数
   const changeMonth = (offset) => {
     const [year, month] = currentYearMonth.split('-').map(num => parseInt(num));
-    // タイムゾーンを考慮した日付操作
-    const date = new Date(`${year}-${month}-01T00:00:00+09:00`);
-    date.setMonth(date.getMonth() + offset);
     
-    const formatter = new Intl.DateTimeFormat('en', {
-      year: 'numeric', 
-      month: '2-digit',
-      timeZone: 'Asia/Tokyo'
-    });
-    const parts = formatter.formatToParts(date);
-    const newYear = parts.find(part => part.type === 'year').value;
-    const newMonth = parts.find(part => part.type === 'month').value;
+    // 日付操作 - より信頼性の高い方法
+    let newDate = new Date(Date.UTC(year, month - 1, 1)); // UTCで作成して時差問題を回避
+    newDate.setUTCMonth(newDate.getUTCMonth() + offset);
+    
+    const newYear = newDate.getUTCFullYear();
+    // 月は0から始まるので、1を足して2桁でフォーマット
+    const newMonth = String(newDate.getUTCMonth() + 1).padStart(2, '0');
+    
     setCurrentYearMonth(`${newYear}-${newMonth}`);
   };
 

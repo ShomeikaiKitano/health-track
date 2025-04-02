@@ -4,6 +4,7 @@ import Head from 'next/head';
 import HealthIcon from '../components/HealthIcon';
 import HistoryList from '../components/HistoryList';
 import HealthChart from '../components/HealthChart';
+import HealthCalendar from '../components/HealthCalendar';
 
 export default function Home() {
   const [currentStatus, setCurrentStatus] = useState('');
@@ -16,6 +17,7 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [user, setUser] = useState(null);
+  const [editingEntry, setEditingEntry] = useState(null);
   const router = useRouter();
   
   // 体調ステータスに応じたキーワードのリスト
@@ -147,64 +149,130 @@ export default function Home() {
     setShowFactors(true);
     setShowKeywords(false);
   };
+  
+  // 体調データの編集を開始する関数
+  const handleEditHealth = (entry) => {
+    setEditingEntry(entry);
+    setCurrentStatus(entry.status);
+    setSelectedKeywords(entry.keywords || []);
+    setSelectedFactor(entry.factor || '');
+    setComment(entry.comment || '');
+    
+    // 日付部分だけを取得（日本時間）
+    const date = new Date(entry.date);
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    setSelectedDate(`${year}-${month}-${day}`);
+    
+    // 編集モードを表示
+    setShowKeywords(true);
+    
+    // 画面上部へスクロール
+    window.scrollTo({
+      top: 0,
+      behavior: 'smooth'
+    });
+  };
 
   // 体調を保存する関数
   const saveHealth = async () => {
     if (!currentStatus || !user) return;
     
-    // 現在の日付と時刻を取得
-    const now = new Date();
-    // 選択された日付と現在の時刻を組み合わせる
-    const entryDate = new Date(selectedDate);
-    entryDate.setHours(now.getHours());
-    entryDate.setMinutes(now.getMinutes());
-    entryDate.setSeconds(now.getSeconds());
-    
-    const newEntry = {
-      date: entryDate.toISOString(),
-      status: currentStatus,
-      comment: comment,
-      keywords: selectedKeywords,
-      factor: selectedFactor,
-      rating: getRatingFromStatus(currentStatus)
-    };
-    
     try {
       setLoading(true);
-      const response = await fetch(`/api/health?userId=${user.userId}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(newEntry),
-      });
       
-      if (!response.ok) {
-        throw new Error('データの保存に失敗しました');
+      // 編集モードの場合
+      if (editingEntry) {
+        const updatedEntry = {
+          ...editingEntry,
+          status: currentStatus,
+          comment: comment,
+          keywords: selectedKeywords,
+          factor: selectedFactor,
+          rating: getRatingFromStatus(currentStatus)
+        };
+        
+        // 日付を更新
+        const entryDate = new Date(selectedDate);
+        const originalDate = new Date(editingEntry.date);
+        entryDate.setHours(originalDate.getHours());
+        entryDate.setMinutes(originalDate.getMinutes());
+        entryDate.setSeconds(originalDate.getSeconds());
+        updatedEntry.date = entryDate.toISOString();
+        
+        const response = await fetch(`/api/health?userId=${user.userId}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(updatedEntry),
+        });
+        
+        if (!response.ok) {
+          throw new Error('データの更新に失敗しました');
+        }
+        
+        // 履歴を更新
+        const updatedHistory = history.map(item => {
+          if (item.id === updatedEntry.id) {
+            return updatedEntry;
+          }
+          return item;
+        });
+        
+        setHistory(updatedHistory);
+      } 
+      // 新規作成モード
+      else {
+        // 現在の日付と時刻を取得
+        const now = new Date();
+        // 選択された日付と現在の時刻を組み合わせる
+        const entryDate = new Date(selectedDate);
+        entryDate.setHours(now.getHours());
+        entryDate.setMinutes(now.getMinutes());
+        entryDate.setSeconds(now.getSeconds());
+        
+        const newEntry = {
+          date: entryDate.toISOString(),
+          status: currentStatus,
+          comment: comment,
+          keywords: selectedKeywords,
+          factor: selectedFactor,
+          rating: getRatingFromStatus(currentStatus)
+        };
+        
+        const response = await fetch(`/api/health?userId=${user.userId}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(newEntry),
+        });
+        
+        if (!response.ok) {
+          throw new Error('データの保存に失敗しました');
+        }
+        
+        // UIを更新
+        setHistory([newEntry, ...history]);
       }
       
-      // UIを更新
-      setHistory([newEntry, ...history]);
+      // 状態をリセット
       setCurrentStatus('');
       setComment('');
       setSelectedKeywords([]);
       setSelectedFactor('');
       setShowKeywords(false);
       setShowFactors(false);
+      setEditingEntry(null);
       setLoading(false);
     } catch (err) {
       console.error('保存エラー:', err);
       setError('データの保存中にエラーが発生しました');
       setLoading(false);
       
-      // フォールバック: ローカルにのみ保存
-      setHistory([newEntry, ...history]);
-      setCurrentStatus('');
-      setComment('');
-      setSelectedKeywords([]);
-      setSelectedFactor('');
-      setShowKeywords(false);
-      setShowFactors(false);
+      // エラーが発生した場合はリセットしない
     }
   };
 
@@ -281,32 +349,35 @@ export default function Home() {
               className="dateInput"
             />
           </div>
-          <div className="healthStatus">
-            <HealthIcon 
-              type="excellent"
-              active={currentStatus === 'excellent'}
-              onClick={recordHealth}
-            />
-            <HealthIcon 
-              type="good"
-              active={currentStatus === 'good'}
-              onClick={recordHealth}
-            />
-            <HealthIcon 
-              type="average"
-              active={currentStatus === 'average'}
-              onClick={recordHealth}
-            />
-            <HealthIcon 
-              type="fair"
-              active={currentStatus === 'fair'}
-              onClick={recordHealth}
-            />
-            <HealthIcon 
-              type="poor"
-              active={currentStatus === 'poor'}
-              onClick={recordHealth}
-            />
+          <div className="healthStatusSection">
+            <h3 className="sectionTitle">今日の体調</h3>
+            <div className="healthStatus">
+              <HealthIcon 
+                type="excellent"
+                active={currentStatus === 'excellent'}
+                onClick={recordHealth}
+              />
+              <HealthIcon 
+                type="good"
+                active={currentStatus === 'good'}
+                onClick={recordHealth}
+              />
+              <HealthIcon 
+                type="average"
+                active={currentStatus === 'average'}
+                onClick={recordHealth}
+              />
+              <HealthIcon 
+                type="fair"
+                active={currentStatus === 'fair'}
+                onClick={recordHealth}
+              />
+              <HealthIcon 
+                type="poor"
+                active={currentStatus === 'poor'}
+                onClick={recordHealth}
+              />
+            </div>
           </div>
           
           {showKeywords && currentStatus && (
@@ -412,8 +483,25 @@ export default function Home() {
               onClick={saveHealth}
               disabled={!currentStatus || loading}
             >
-              {loading ? '保存中...' : '記録する 📝'}
+              {loading ? '保存中...' : editingEntry ? '更新する 📝' : '記録する 📝'}
             </button>
+            {editingEntry && (
+              <button 
+                className="cancelButton" 
+                onClick={() => {
+                  setEditingEntry(null);
+                  setCurrentStatus('');
+                  setComment('');
+                  setSelectedKeywords([]);
+                  setSelectedFactor('');
+                  setShowKeywords(false);
+                  setShowFactors(false);
+                }}
+                disabled={loading}
+              >
+                キャンセル
+              </button>
+            )}
           </div>
         </div>
 
@@ -431,12 +519,20 @@ export default function Home() {
             >
               グラフ
             </div>
+            <div 
+              className={`tab ${activeTab === 'calendar' ? 'active' : ''}`}
+              onClick={() => setActiveTab('calendar')}
+            >
+              カレンダー
+            </div>
           </div>
 
           {activeTab === 'history' ? (
-            <HistoryList history={history} />
-          ) : (
+            <HistoryList history={history} onEdit={handleEditHealth} />
+          ) : activeTab === 'chart' ? (
             <HealthChart history={history} />
+          ) : (
+            <HealthCalendar history={history} />
           )}
         </div>
       </main>
@@ -523,6 +619,107 @@ export default function Home() {
           border: 1px solid rgba(0,0,0,0.1);
           border-radius: 8px;
           font-family: inherit;
+        }
+        
+        .healthStatusSection {
+          margin-bottom: 1.5rem;
+          position: relative;
+          z-index: 1;
+        }
+        
+        .sectionTitle {
+          font-size: 1rem;
+          font-weight: 500;
+          margin-top: 0;
+          margin-bottom: 0.75rem;
+          color: var(--text-dark);
+        }
+        
+        .healthStatus {
+          display: flex;
+          flex-wrap: wrap;
+          justify-content: center;
+          gap: 12px;
+        }
+        
+        .statusIcon {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          cursor: pointer;
+          padding: 10px;
+          border-radius: 8px;
+          border: 2px solid transparent;
+          transition: all 0.2s ease;
+          width: 70px;
+        }
+        
+        .statusIcon:hover {
+          background-color: #f5f5f5;
+        }
+        
+        .statusIcon.active {
+          transform: translateY(-5px);
+          box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        
+        .statusIcon.excellent.active {
+          border-color: #FFC107;
+          background-color: rgba(255, 193, 7, 0.1);
+        }
+        
+        .statusIcon.good.active {
+          border-color: #8BC34A;
+          background-color: rgba(139, 195, 74, 0.1);
+        }
+        
+        .statusIcon.average.active {
+          border-color: #9E9E9E;
+          background-color: rgba(158, 158, 158, 0.1);
+        }
+        
+        .statusIcon.fair.active {
+          border-color: #03A9F4;
+          background-color: rgba(3, 169, 244, 0.1);
+        }
+        
+        .statusIcon.poor.active {
+          border-color: #0D47A1;
+          background-color: rgba(13, 71, 161, 0.1);
+        }
+        
+        .labelText {
+          margin-top: 5px;
+          font-size: 0.85rem;
+          font-weight: 500;
+          color: #666;
+        }
+        
+        @media (max-width: 600px) {
+          .healthStatus {
+            justify-content: center;
+            gap: 8px;
+          }
+          .statusIcon {
+            width: 60px;
+            padding: 8px;
+          }
+          .statusIcon div {
+            font-size: 44px;
+          }
+          .labelText {
+            font-size: 0.75rem;
+          }
+        }
+        
+        @media (max-width: 400px) {
+          .statusIcon {
+            width: 50px;
+            padding: 6px;
+          }
+          .statusIcon div {
+            font-size: 38px;
+          }
         }
         .keywordSelector, .factorSelector {
           margin-top: 2rem;
@@ -690,10 +887,23 @@ export default function Home() {
           background: rgba(0,0,0,0.05);
         }
         .buttonContainer {
-          text-align: center;
+          display: flex;
+          justify-content: center;
+          gap: 10px;
           margin-top: 2rem;
           position: relative;
           z-index: 1;
+        }
+        
+        .cancelButton {
+          padding: 10px 20px;
+          background-color: #f0f0f0;
+          color: #666;
+          border: none;
+          border-radius: 8px;
+          cursor: pointer;
+          font-weight: 500;
+          font-size: 0.9rem;
         }
       `}</style>
     </div>

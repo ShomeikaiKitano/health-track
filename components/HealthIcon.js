@@ -25,11 +25,11 @@ const HealthIcon = ({ type, active, onClick }) => {
   
   return (
     <div 
-      className={`statusIcon ${active ? 'active' : ''}`} 
+      className={`statusIcon ${className} ${active ? 'active' : ''}`} 
       onClick={() => onClick(type)}
     >
-      <div style={{ fontSize: '64px' }}>{icon}</div>
-      <span className={className}>{label}</span>
+      <div style={{ fontSize: '52px' }}>{icon}</div>
+      <span className="labelText">{label}</span>
     </div>
   );
 };

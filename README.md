@@ -27,6 +27,22 @@ npm run dev
 
 アプリケーションは http://localhost:3000 で実行されます。
 
+## テスト実行
+
+```bash
+# すべてのテストを実行
+npm test
+
+# 特定のテストファイルだけを実行
+npm test -- __tests__/pages/index.test.js
+
+# ファイル変更を監視してテストを自動実行（開発時に便利）
+npm run test:watch
+
+# テストカバレッジレポートを生成
+npm run test:coverage
+```
+
 ## 初期ユーザー
 
 | ユーザー名 | パスワード | 権限 |
